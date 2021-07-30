@@ -9,7 +9,6 @@
 #include <QPrinter>
 #include <QStyleFactory>
 #include <QTextStream>
-#include <QtPlugin>
 
 void ApplyDarkTheme()
 {
@@ -48,24 +47,45 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::on_actionExit_triggered()
+void MainWindow::on_actionNew_triggered()
 {
-    QApplication::quit();
-}
-
-void MainWindow::on_actionPrint_triggered()
-{
-    QPrinter printer;
-    printer.setPrinterName("Printer");
-    QPrintDialog printer_dialog(&printer, this);
-
-    if (printer_dialog.exec() == QDialog::Rejected)
+    if (!ui->textEdit->toPlainText().isEmpty())
     {
-        QMessageBox::warning(this, "Warning", "Cannot access printer");
-        return;
+        if (!current_file.isEmpty())
+        {
+            QFile file(current_file);
+            if (!file.open(QFile::ReadOnly | QFile::Text))
+            {
+                QMessageBox::warning(this, "Warning", "Couldn't save the file: " + file.errorString());
+                return;
+            }
+
+            QTextStream input_stream(&file);
+            QString file_text = input_stream.readAll();
+
+            if (file_text != ui->textEdit->toPlainText())
+            {
+                auto reply = QMessageBox::question(this, "Warning", "File has unsaved changes\n\nSave?",
+                                                   QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::Yes)
+                {
+                    on_actionSave_triggered();
+                }
+            }
+        }
+        else
+        {
+            auto reply = QMessageBox::question(this, "Warning", "File has unsaved changes\n\nSave?",
+                                               QMessageBox::Yes | QMessageBox::No);
+            if (reply == QMessageBox::Yes)
+            {
+                on_actionSave_as_triggered();
+            }
+        }
     }
 
-    ui->textEdit->print(&printer);
+    current_file.clear();
+    ui->textEdit->setText(QString());
 }
 
 void MainWindow::on_actionOpen_triggered()
@@ -89,49 +109,6 @@ void MainWindow::on_actionOpen_triggered()
     file.close();
 }
 
-void MainWindow::on_actionNew_triggered()
-{
-    if (!ui->textEdit->toPlainText().isEmpty())
-    {
-        if (current_file.isEmpty())
-        {
-            auto reply = QMessageBox::question(this, "Warning", "File has unsaved changes\n\nSave?", QMessageBox::Yes | QMessageBox::No);
-            if (reply == QMessageBox::Yes)
-            {
-                on_actionSave_as_triggered();
-            }
-            return;
-        }
-        else
-        {
-            QFile file(current_file);
-            if (!file.open(QFile::ReadOnly | QFile::Text))
-            {
-                QMessageBox::warning(this, "Warning", "Couldn't save the file: " + file.errorString());
-                return;
-            }
-            QTextStream input_stream(&file);
-            QString file_text = input_stream.readAll();
-
-            if (file_text == ui->textEdit->toPlainText())
-            {
-                return;
-            }
-            else
-            {
-                auto reply = QMessageBox::question(this, "Warning", "File has unsaved changes\n\nSave?", QMessageBox::Yes | QMessageBox::No);
-                if (reply == QMessageBox::Yes)
-                {
-                    on_actionSave_triggered();
-                }
-            }
-        }
-    }
-
-    current_file.clear();
-    ui->textEdit->setText(QString());
-}
-
 void MainWindow::on_actionSave_triggered()
 {
     if (current_file.isEmpty())
@@ -139,8 +116,8 @@ void MainWindow::on_actionSave_triggered()
         on_actionSave_as_triggered();
         return;
     }
-    QFile file(current_file);
 
+    QFile file(current_file);
     if (!file.open(QFile::WriteOnly | QFile::Text))
     {
         QMessageBox::warning(this, "Warning", "Couldn't save the file: " + file.errorString());
@@ -169,6 +146,26 @@ void MainWindow::on_actionSave_as_triggered()
     QTextStream output_stream(&file);
     output_stream << ui->textEdit->toPlainText();
     file.close();
+}
+
+void MainWindow::on_actionPrint_triggered()
+{
+    QPrinter printer;
+    printer.setPrinterName("Printer");
+    QPrintDialog printer_dialog(&printer, this);
+
+    if (printer_dialog.exec() == QDialog::Rejected)
+    {
+        QMessageBox::warning(this, "Warning", "Cannot access printer");
+        return;
+    }
+
+    ui->textEdit->print(&printer);
+}
+
+void MainWindow::on_actionExit_triggered()
+{
+    QApplication::quit();
 }
 
 void MainWindow::on_actionCopy_triggered()
